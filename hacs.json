@@ -1,7 +1,5 @@
 {
   "name": "eISCP Legacy Receiver",
   "homeassistant": "2025.1.0",
-  "render_readme": true,
-  "zip_release": true,
-  "filename": "eiscp_legacy.zip"
+  "render_readme": true
 }
