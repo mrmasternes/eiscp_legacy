@@ -232,6 +232,14 @@ async def test_power_on_repeats_refresh_for_slow_receivers(fake_receiver, make_r
     assert receiver._refresh_handle is None
 
 
+async def test_waits_for_reply_so_slow_receiver_drops_nothing(fake_receiver, make_receiver) -> None:
+    """A receiver that drops commands while busy still answers every refresh query."""
+    fake_receiver.busy_time = 0.05
+    receiver = await _connected(make_receiver, fake_receiver)
+    await _until(lambda: all(c in receiver.state for c in ("PWR", "MVL", "AMT", "SLI", "LMD")))
+    assert fake_receiver.dropped == []
+
+
 async def test_pending_query_fails_on_stop(fake_receiver, make_receiver) -> None:
     receiver = await _connected(make_receiver, fake_receiver)
     await _until(lambda: len(receiver.state) >= 5)

@@ -26,6 +26,8 @@ MAX_MISSED_KEEPALIVES = 3
 KEEPALIVE_COMMAND = "PWRQSTN"
 # Extra refreshes after power-on (at 3x the delay each), for slow-booting units.
 POWER_ON_FOLLOW_UPS = 2
+# How long to wait for the reply to a command before sending the next one.
+REPLY_TIMEOUT = 0.5
 
 
 class NotConnectedError(Exception):
@@ -128,6 +130,8 @@ class Receiver:
         self._connected_event = asyncio.Event()
         self._unavailable_logged = False
         self._refresh_handle: asyncio.TimerHandle | None = None
+        self._reply_command: str | None = None
+        self._reply_event = asyncio.Event()
         self._pending: dict[str, list[asyncio.Future[str]]] = {}
         self._message_listeners: list[Callable[[Message], None]] = []
         self._connection_listeners: list[Callable[[bool], None]] = []
@@ -348,9 +352,17 @@ class Receiver:
                 except UnicodeEncodeError:
                     _LOGGER.warning("Dropping non-ASCII command %r", command)
                     continue
+                # Old receivers drop commands that arrive while they are still
+                # answering the previous one, so wait for the reply (same
+                # 3-letter command) before sending the next, up to a timeout.
+                self._reply_command = command[:3].upper()
+                self._reply_event.clear()
                 writer.write(data)
                 await writer.drain()
                 self.stats["messages_sent"] += 1
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._reply_event.wait(), REPLY_TIMEOUT)
+                self._reply_command = None
                 await asyncio.sleep(self._command_interval)
         except OSError as err:
             # Closing makes the reader see EOF so the session ends.
@@ -362,6 +374,8 @@ class Receiver:
         previous = self.state.get(message.command)
         self.state[message.command] = message.value
         self.stats["messages_received"] += 1
+        if message.command == self._reply_command:
+            self._reply_event.set()
         for future in self._pending.pop(message.command, []):
             if not future.done():
                 future.set_result(message.value)

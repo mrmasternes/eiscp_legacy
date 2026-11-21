@@ -46,6 +46,11 @@ class FakeReceiver:
         self.state: dict[str, str] = dict(INITIAL_STATE)
         self.commands: list[str] = []
         self.silent = False
+        # > 0: take this long to answer and drop commands received meanwhile.
+        self.busy_time = 0.0
+        self.dropped: list[str] = []
+        self._busy = False
+        self._tasks: set[asyncio.Task] = set()
         self.connections = 0
         self.port = 0
         self._server: asyncio.Server | None = None
@@ -59,6 +64,9 @@ class FakeReceiver:
     async def stop(self) -> None:
         """Stop listening and close all connections."""
         await self.drop_connections()
+        for task in self._tasks:
+            task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
         if self._server is not None:
             self._server.close()
             await self._server.wait_closed()
@@ -99,6 +107,15 @@ class FakeReceiver:
         self.state[cmd] = value
         await self._send(writer, f"{cmd}{value}")
 
+    async def _apply_slowly(self, writer: asyncio.StreamWriter, message: Message) -> None:
+        try:
+            await asyncio.sleep(self.busy_time)
+            await self._apply(writer, message)
+        except OSError:
+            pass
+        finally:
+            self._busy = False
+
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.connections += 1
         self._writers.append(writer)
@@ -107,8 +124,17 @@ class FakeReceiver:
             while data := await reader.read(4096):
                 for message in decoder.feed(data):
                     self.commands.append(message.raw)
-                    if not self.silent:
+                    if self.silent:
+                        continue
+                    if not self.busy_time:
                         await self._apply(writer, message)
+                    elif self._busy:
+                        # Like the Integra DTC-9.8: commands arriving while it is
+                        # still handling the previous one are silently dropped.
+                        self.dropped.append(message.raw)
+                    else:
+                        self._busy = True
+                        self._tasks.add(asyncio.create_task(self._apply_slowly(writer, message)))
         except (OSError, asyncio.IncompleteReadError):
             pass
         finally:
