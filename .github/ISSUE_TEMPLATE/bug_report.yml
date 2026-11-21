@@ -1,0 +1,57 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please first make sure no other controller (Node-RED, another app, ...) is connected to the receiver, as many older receivers accept only one control connection at a time.
+  - type: input
+    id: receiver
+    attributes:
+      label: Receiver model
+      description: Brand and model, and firmware if known.
+      placeholder: Integra DTC-9.8
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2025.1.0"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol
+      options:
+        - eISCP (TCP, port 60128)
+        - Raw ISCP via serial-to-TCP bridge
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics file
+      description: Download diagnostics from the device page in Home Assistant and drag the file here.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug log
+      description: "Enable debug logging (the Enable debug logging button on the integration page, or set custom_components.eiscp_legacy to debug under logger logs), reproduce the problem and paste the log."
+      render: text

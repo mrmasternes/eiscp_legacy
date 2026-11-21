@@ -1,0 +1,122 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your receiver",
+        "description": "Enter the address of your Onkyo, Integra or Pioneer receiver. The eISCP port is normally 60128. These receivers accept only one controller at a time, so disable any other controller (for example Node-RED) before continuing.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "protocol": "Protocol",
+          "name": "Name"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the receiver (without a port, for example 10.0.1.209).",
+          "port": "TCP port of the receiver. Network (eISCP) receivers normally use 60128.",
+          "protocol": "Use Network (eISCP) for the built-in Ethernet port. Use Serial bridge only if the receiver is reached through a serial-to-TCP bridge such as ser2net.",
+          "name": "Name of the receiver in Home Assistant."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure receiver connection",
+        "description": "Update the connection settings of your receiver. Make sure no other controller (for example Node-RED) is connected to it.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "protocol": "Protocol"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the receiver (without a port, for example 10.0.1.209).",
+          "port": "TCP port of the receiver. Network (eISCP) receivers normally use 60128.",
+          "protocol": "Use Network (eISCP) for the built-in Ethernet port. Use Serial bridge only if the receiver is reached through a serial-to-TCP bridge such as ser2net."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the receiver. Check the host and port, and that no other app is using the connection.",
+      "no_response": "Connected, but the receiver did not answer. Check the protocol setting and make sure no other app (for example Node-RED) is connected to it.",
+      "host_includes_port": "Enter only the host here and put the port in the Port field.",
+      "unknown": "Unexpected error. Check the Home Assistant log for details."
+    },
+    "abort": {
+      "already_configured": "This receiver is already configured.",
+      "reconfigure_successful": "Re-configuration was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Receiver options",
+        "data": {
+          "volume_resolution": "Volume resolution",
+          "max_volume": "Maximum volume",
+          "sources": "Sources",
+          "sound_modes": "Sound modes"
+        },
+        "data_description": {
+          "volume_resolution": "Number of volume steps your receiver supports. Most older receivers use 100 steps; some use 80 or 200.",
+          "max_volume": "Upper volume limit as a percentage of the receiver's range. Volume commands from Home Assistant never exceed it.",
+          "sources": "One input per line in the form 03=HDMI, where the code is the receiver's SLI input code in hex and the text is the name shown in Home Assistant. Lines starting with # are ignored.",
+          "sound_modes": "Listening modes offered in Home Assistant."
+        }
+      }
+    },
+    "error": {
+      "invalid_sources": "Each line must look like 03=HDMI with a two-digit hex code and a name, and at least one source is required."
+    }
+  },
+  "selector": {
+    "protocol": {
+      "options": {
+        "eiscp": "Network (eISCP)",
+        "iscp": "Serial bridge (raw ISCP over TCP, e.g. ser2net)"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Could not connect to the receiver at {host}:{port}."
+    },
+    "not_connected": {
+      "message": "The receiver is not connected."
+    },
+    "query_timeout": {
+      "message": "The receiver did not answer the query in time."
+    },
+    "invalid_command": {
+      "message": "Invalid command: {command}."
+    },
+    "unknown_source": {
+      "message": "Unknown source. Choose one of the configured sources."
+    },
+    "unknown_sound_mode": {
+      "message": "Unknown sound mode."
+    }
+  },
+  "services": {
+    "send_raw_command": {
+      "name": "Send raw command",
+      "description": "Sends a raw ISCP command, such as SWL+2, to the receiver.",
+      "fields": {
+        "command": {
+          "name": "Command",
+          "description": "The ISCP command and value to send, without the leading !1."
+        }
+      }
+    },
+    "query": {
+      "name": "Query",
+      "description": "Asks the receiver for the value of a 3-letter command (for example MVL) and returns the answer.",
+      "fields": {
+        "command": {
+          "name": "Command",
+          "description": "The 3-letter command to query."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "How long to wait for the answer, in seconds."
+        }
+      }
+    }
+  }
+}

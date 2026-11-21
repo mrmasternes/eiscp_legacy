@@ -1,0 +1,32 @@
+send_raw_command:
+  target:
+    entity:
+      integration: eiscp_legacy
+      domain: media_player
+  fields:
+    command:
+      required: true
+      example: "SWL+2"
+      selector:
+        text:
+
+query:
+  target:
+    entity:
+      integration: eiscp_legacy
+      domain: media_player
+  fields:
+    command:
+      required: true
+      example: "MVL"
+      selector:
+        text:
+    timeout:
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 0.5
+          max: 30
+          step: 0.5
+          unit_of_measurement: "s"

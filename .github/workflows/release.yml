@@ -1,0 +1,23 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and upload zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create zip
+        run: |
+          cd custom_components/eiscp_legacy
+          zip -r ../../eiscp_legacy.zip . -x "__pycache__/*" "*.pyc"
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: eiscp_legacy.zip

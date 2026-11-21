@@ -1,0 +1,10 @@
+{
+  "services": {
+    "send_raw_command": {
+      "service": "mdi:console"
+    },
+    "query": {
+      "service": "mdi:help-circle-outline"
+    }
+  }
+}

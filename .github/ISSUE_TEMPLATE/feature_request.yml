@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an improvement or support for another receiver feature
+labels: [enhancement]
+body:
+  - type: input
+    id: receiver
+    attributes:
+      label: Receiver model
+      placeholder: Integra DTC-9.8
+  - type: textarea
+    id: request
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Relevant eISCP commands
+      description: If you know them, list the ISCP commands involved (for example `TFR`, `SWL`) and any documentation.
