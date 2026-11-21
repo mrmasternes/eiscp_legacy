@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import re
-
 DOMAIN = "eiscp_legacy"
 
 CONF_PROTOCOL = "protocol"
+CONF_MODEL = "model"
+CONF_SOURCE_NAMES = "source_names"
 CONF_VOLUME_RESOLUTION = "volume_resolution"
 CONF_MAX_VOLUME = "max_volume"
 CONF_SOURCES = "sources"
@@ -136,37 +136,3 @@ DEFAULT_SOUND_MODES: list[str] = [
     "83",
     "86",
 ]
-
-_CODE_RE = re.compile(r"^[0-9A-F]{2}$")
-
-
-def parse_sources(text: str) -> dict[str, str]:
-    """Parse ``code=name`` lines (``:`` also accepted) into a dict.
-
-    Blank lines and lines starting with ``#`` are ignored. Raises ValueError
-    for malformed lines or when no source is defined.
-    """
-    sources: dict[str, str] = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        positions = [pos for sep in "=:" if (pos := line.find(sep)) >= 0]
-        if not positions:
-            raise ValueError(f"Missing separator in line: {line}")
-        pos = min(positions)
-        code = line[:pos].strip().upper()
-        name = line[pos + 1 :].strip()
-        if not _CODE_RE.match(code):
-            raise ValueError(f"Invalid source code: {code}")
-        if not name:
-            raise ValueError(f"Empty source name for code {code}")
-        sources[code] = name
-    if not sources:
-        raise ValueError("No sources defined")
-    return sources
-
-
-def format_sources(sources: dict[str, str]) -> str:
-    """Format a sources dict as one ``code=name`` per line."""
-    return "\n".join(f"{code}={name}" for code, name in sources.items())

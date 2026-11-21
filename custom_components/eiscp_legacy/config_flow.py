@@ -25,28 +25,34 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TextSelector,
-    TextSelectorConfig,
 )
 import voluptuous as vol
 
 from .connection import CannotConnect, NoResponse, async_probe
 from .const import (
     CONF_MAX_VOLUME,
+    CONF_MODEL,
     CONF_PROTOCOL,
     CONF_SOUND_MODES,
+    CONF_SOURCE_NAMES,
     CONF_SOURCES,
     CONF_VOLUME_RESOLUTION,
     DEFAULT_MAX_VOLUME,
     DEFAULT_NAME,
     DEFAULT_PORT,
-    DEFAULT_SOUND_MODES,
-    DEFAULT_SOURCES,
     DEFAULT_VOLUME_RESOLUTION,
     DOMAIN,
     LISTENING_MODES,
     VOLUME_RESOLUTIONS,
-    format_sources,
-    parse_sources,
+)
+from .models import MODEL_OTHER, model_choices
+from .options import (
+    available_sound_modes,
+    available_sources,
+    change_model,
+    default_options,
+    source_label,
+    standard_source_name,
 )
 from .protocol import PROTOCOL_EISCP, PROTOCOL_ISCP
 
@@ -62,6 +68,16 @@ _PROTOCOL_SELECTOR = SelectSelector(
     )
 )
 
+_MODEL_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=[
+            *(SelectOptionDict(value=key, label=name) for key, name in model_choices()),
+            SelectOptionDict(value=MODEL_OTHER, label="Other / not listed"),
+        ],
+        mode=SelectSelectorMode.DROPDOWN,
+    )
+)
+
 
 def _connection_schema(*, with_name: bool) -> vol.Schema:
     """Return the schema for the user and reconfigure steps."""
@@ -71,6 +87,7 @@ def _connection_schema(*, with_name: bool) -> vol.Schema:
         vol.Required(CONF_PROTOCOL, default=PROTOCOL_EISCP): _PROTOCOL_SELECTOR,
     }
     if with_name:
+        schema[vol.Required(CONF_MODEL, default=MODEL_OTHER)] = _MODEL_SELECTOR
         schema[vol.Required(CONF_NAME, default=DEFAULT_NAME)] = str
     return vol.Schema(schema)
 
@@ -101,6 +118,7 @@ class EiscpConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for an eISCP Legacy Receiver."""
 
     VERSION = 1
+    MINOR_VERSION = 2
 
     @staticmethod
     @callback
@@ -128,12 +146,7 @@ class EiscpConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_PORT: port,
                         CONF_PROTOCOL: user_input[CONF_PROTOCOL],
                     },
-                    options={
-                        CONF_VOLUME_RESOLUTION: DEFAULT_VOLUME_RESOLUTION,
-                        CONF_MAX_VOLUME: DEFAULT_MAX_VOLUME,
-                        CONF_SOURCES: dict(DEFAULT_SOURCES),
-                        CONF_SOUND_MODES: list(DEFAULT_SOUND_MODES),
-                    },
+                    options=default_options(user_input[CONF_MODEL]),
                 )
 
         return self.async_show_form(
@@ -203,34 +216,33 @@ class EiscpConfigFlow(ConfigFlow, domain=DOMAIN):
 class EiscpOptionsFlow(OptionsFlow):
     """Handle the options of an eISCP Legacy Receiver."""
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Manage the options."""
-        errors: dict[str, str] = {}
-        options = self.config_entry.options
+    def __init__(self) -> None:
+        """Initialize the options flow."""
+        self._options: dict[str, Any] = {}
 
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Choose the model and the volume settings."""
+        current = dict(self.config_entry.options)
         if user_input is not None:
-            try:
-                sources = parse_sources(user_input[CONF_SOURCES])
-            except ValueError:
-                errors[CONF_SOURCES] = "invalid_sources"
-            else:
-                return self.async_create_entry(
-                    data={
-                        CONF_VOLUME_RESOLUTION: int(user_input[CONF_VOLUME_RESOLUTION]),
-                        CONF_MAX_VOLUME: int(user_input[CONF_MAX_VOLUME]),
-                        CONF_SOURCES: sources,
-                        CONF_SOUND_MODES: list(user_input[CONF_SOUND_MODES]),
-                    }
-                )
+            new = {
+                **current,
+                CONF_VOLUME_RESOLUTION: int(user_input[CONF_VOLUME_RESOLUTION]),
+                CONF_MAX_VOLUME: int(user_input[CONF_MAX_VOLUME]),
+            }
+            if user_input[CONF_MODEL] != current.get(CONF_MODEL, MODEL_OTHER):
+                new = change_model(new, user_input[CONF_MODEL])
+            self._options = new
+            return await self.async_step_select()
 
         schema = vol.Schema(
             {
+                vol.Required(CONF_MODEL): _MODEL_SELECTOR,
                 vol.Required(CONF_VOLUME_RESOLUTION): SelectSelector(
                     SelectSelectorConfig(
                         options=[
                             SelectOptionDict(
                                 value=str(res),
-                                label=f"{res} steps (0x00â€“0x{res:02X})",
+                                label=f"{res} steps (0x00-0x{res:02X})",
                             )
                             for res in VOLUME_RESOLUTIONS
                         ],
@@ -246,34 +258,102 @@ class EiscpOptionsFlow(OptionsFlow):
                         mode=NumberSelectorMode.SLIDER,
                     )
                 ),
-                vol.Required(CONF_SOURCES): TextSelector(TextSelectorConfig(multiline=True)),
-                vol.Required(CONF_SOUND_MODES): SelectSelector(
+            }
+        )
+        suggested = {
+            CONF_MODEL: current.get(CONF_MODEL, MODEL_OTHER),
+            CONF_VOLUME_RESOLUTION: str(
+                current.get(CONF_VOLUME_RESOLUTION, DEFAULT_VOLUME_RESOLUTION)
+            ),
+            CONF_MAX_VOLUME: current.get(CONF_MAX_VOLUME, DEFAULT_MAX_VOLUME),
+        }
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
+        )
+
+    async def async_step_select(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Choose which inputs and listening modes are shown."""
+        errors: dict[str, str] = {}
+        model = self._options.get(CONF_MODEL, MODEL_OTHER)
+        source_codes = available_sources(model)
+        mode_codes = available_sound_modes(model)
+
+        if user_input is not None:
+            chosen_sources = set(user_input[CONF_SOURCES])
+            chosen_modes = set(user_input.get(CONF_SOUND_MODES, []))
+            if not chosen_sources:
+                errors[CONF_SOURCES] = "no_sources"
+            else:
+                self._options = {
+                    **self._options,
+                    # Keep the receiver's own order, not the order of clicking.
+                    CONF_SOURCES: [c for c in source_codes if c in chosen_sources],
+                    CONF_SOUND_MODES: [c for c in mode_codes if c in chosen_modes],
+                }
+                return await self.async_step_names()
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_SOURCES): SelectSelector(
                     SelectSelectorConfig(
                         options=[
-                            SelectOptionDict(value=code, label=name)
-                            for code, name in LISTENING_MODES.items()
+                            SelectOptionDict(value=code, label=source_label(code))
+                            for code in source_codes
                         ],
                         multiple=True,
-                        mode=SelectSelectorMode.DROPDOWN,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                ),
+                vol.Optional(CONF_SOUND_MODES): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value=code, label=LISTENING_MODES.get(code, f"Unknown ({code})")
+                            )
+                            for code in mode_codes
+                        ],
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
                     )
                 ),
             }
         )
-
         if user_input is not None:
             suggested = user_input
         else:
             suggested = {
-                CONF_VOLUME_RESOLUTION: str(
-                    options.get(CONF_VOLUME_RESOLUTION, DEFAULT_VOLUME_RESOLUTION)
-                ),
-                CONF_MAX_VOLUME: options.get(CONF_MAX_VOLUME, DEFAULT_MAX_VOLUME),
-                CONF_SOURCES: format_sources(options.get(CONF_SOURCES) or DEFAULT_SOURCES),
-                CONF_SOUND_MODES: list(options.get(CONF_SOUND_MODES, DEFAULT_SOUND_MODES)),
+                CONF_SOURCES: [c for c in self._options.get(CONF_SOURCES, []) if c in source_codes],
+                CONF_SOUND_MODES: [
+                    c for c in self._options.get(CONF_SOUND_MODES, []) if c in mode_codes
+                ],
             }
-
         return self.async_show_form(
-            step_id="init",
+            step_id="select",
             data_schema=self.add_suggested_values_to_schema(schema, suggested),
             errors=errors,
+        )
+
+    async def async_step_names(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Rename the shown inputs."""
+        codes: list[str] = self._options[CONF_SOURCES]
+        # Field keys are shown verbatim by Home Assistant, so use readable labels.
+        keys = {code: source_label(code) for code in codes}
+
+        if user_input is not None:
+            names: dict[str, str] = {}
+            for code, key in keys.items():
+                name = str(user_input.get(key) or "").strip()
+                if name and name != standard_source_name(code):
+                    names[code] = name
+            return self.async_create_entry(data={**self._options, CONF_SOURCE_NAMES: names})
+
+        custom = self._options.get(CONF_SOURCE_NAMES) or {}
+        schema = vol.Schema({vol.Optional(key): TextSelector() for key in keys.values()})
+        suggested = {
+            key: custom.get(code) or standard_source_name(code) for code, key in keys.items()
+        }
+        return self.async_show_form(
+            step_id="names",
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
         )

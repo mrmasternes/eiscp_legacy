@@ -5,6 +5,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Choose the receiver model during setup and in the options; only the inputs and listening modes of that model are offered.
+- Options flow with three pages: model and volume, which inputs and listening modes to show, and input names.
+- `select` entities for input and listening mode, and a `number` volume slider, on the same device as the media player.
+- A hidden input or listening mode that the receiver switches to is still shown with its proper name.
+
+### Changed
+
+- Options are stored in a new format (config entry version 1.2) and existing options are migrated automatically.
+- Input names are edited per input instead of as `code=name` text lines.
+
 ## [0.1.0]
 
 ### Added

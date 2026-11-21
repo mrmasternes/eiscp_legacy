@@ -18,11 +18,12 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .connection import Receiver
 from .const import CONF_PROTOCOL, DOMAIN, EVENT_MESSAGE
+from .options import migrate_options
 from .protocol import PROTOCOL_EISCP, Message
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.MEDIA_PLAYER]
+PLATFORMS = [Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.SELECT]
 
 type EiscpConfigEntry = ConfigEntry[Receiver]
 
@@ -74,6 +75,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: EiscpConfigEntry) -> boo
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: EiscpConfigEntry) -> bool:
+    """Migrate options to the current format."""
+    if entry.version == 1 and entry.minor_version < 2:
+        hass.config_entries.async_update_entry(
+            entry, options=migrate_options(dict(entry.options)), minor_version=2
+        )
+        _LOGGER.debug("Migrated entry %s to version 1.2", entry.entry_id)
     return True
 
 

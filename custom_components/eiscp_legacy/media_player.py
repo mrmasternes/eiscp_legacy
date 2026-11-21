@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.media_player import (
@@ -11,37 +10,18 @@ from homeassistant.components.media_player import (
     MediaPlayerEntityFeature,
     MediaPlayerState,
 )
-from homeassistant.core import HomeAssistant, SupportsResponse, callback
+from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 import voluptuous as vol
 
 from . import EiscpConfigEntry
-from .connection import NotConnectedError, Receiver
-from .const import (
-    CONF_MAX_VOLUME,
-    CONF_SOUND_MODES,
-    CONF_SOURCES,
-    CONF_VOLUME_RESOLUTION,
-    DEFAULT_MAX_VOLUME,
-    DEFAULT_SOUND_MODES,
-    DEFAULT_SOURCES,
-    DEFAULT_VOLUME_RESOLUTION,
-    DOMAIN,
-    LISTENING_MODES,
-)
-from .protocol import (
-    Message,
-    is_valid_command,
-    level_to_volume,
-    normalize_command,
-    volume_to_level,
-)
-
-_LOGGER = logging.getLogger(__name__)
+from .connection import NotConnectedError
+from .const import DOMAIN
+from .entity import EiscpEntity
+from .protocol import is_valid_command, level_to_volume, normalize_command, volume_to_level
 
 PARALLEL_UPDATES = 1
 
@@ -88,71 +68,23 @@ async def async_setup_entry(
     )
 
 
-class EiscpMediaPlayer(MediaPlayerEntity):
+class EiscpMediaPlayer(EiscpEntity, MediaPlayerEntity):
     """Media player entity representing a legacy receiver."""
 
-    _attr_has_entity_name = True
     _attr_name = None
-    _attr_should_poll = False
     _attr_device_class = MediaPlayerDeviceClass.RECEIVER
     _attr_supported_features = SUPPORTED_FEATURES
+    _state_commands = _STATE_COMMANDS
 
     def __init__(self, entry: EiscpConfigEntry) -> None:
         """Initialize the entity."""
-        self._receiver: Receiver = entry.runtime_data
-        options = entry.options
-        self._resolution: int = int(options.get(CONF_VOLUME_RESOLUTION, DEFAULT_VOLUME_RESOLUTION))
-        self._max_level: float = int(options.get(CONF_MAX_VOLUME, DEFAULT_MAX_VOLUME)) / 100
-        self._sources: dict[str, str] = dict(options.get(CONF_SOURCES) or DEFAULT_SOURCES)
-        self._sound_modes: dict[str, str] = {
-            code: LISTENING_MODES[code]
-            for code in options.get(CONF_SOUND_MODES, DEFAULT_SOUND_MODES)
-            if code in LISTENING_MODES
-        }
-
+        super().__init__(entry)
         self._attr_unique_id = entry.entry_id
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
-            manufacturer="Onkyo / Integra",
-        )
-        self._attr_source_list = list(self._sources.values())
-        self._attr_sound_mode_list = list(self._sound_modes.values())
-        self._attr_available = self._receiver.connected
-        self._unavailable_logged = False
+        self._attr_source_list = self.source_map.options
+        self._attr_sound_mode_list = self.sound_mode_map.options
 
-    async def async_added_to_hass(self) -> None:
-        """Subscribe to receiver updates."""
-        self._update_from_state()
-        self.async_on_remove(self._receiver.add_message_listener(self._handle_message))
-        self.async_on_remove(self._receiver.add_connection_listener(self._handle_connection))
-
-    @callback
-    def _handle_message(self, message: Message) -> None:
-        """Handle a message from the receiver."""
-        if message.command in _STATE_COMMANDS:
-            self._update_from_state()
-            self.async_write_ha_state()
-
-    @callback
-    def _handle_connection(self, connected: bool) -> None:
-        """Handle a connection state change."""
-        self._update_availability(connected)
-        self.async_write_ha_state()
-
-    def _update_availability(self, connected: bool) -> None:
-        """Update availability and log transitions once."""
-        self._attr_available = connected
-        if not connected and not self._unavailable_logged:
-            _LOGGER.info("Receiver %s is unavailable", self._receiver.host)
-            self._unavailable_logged = True
-        elif connected and self._unavailable_logged:
-            _LOGGER.info("Receiver %s is back online", self._receiver.host)
-            self._unavailable_logged = False
-
-    def _update_from_state(self) -> None:
+    def _handle_update(self) -> None:
         """Recompute entity attributes from the receiver state."""
-        self._update_availability(self._receiver.connected)
         state = self._receiver.state
 
         power = state.get("PWR")
@@ -177,29 +109,12 @@ class EiscpMediaPlayer(MediaPlayerEntity):
             self._attr_is_volume_muted = None
 
         sli = state.get("SLI")
-        if not sli or sli == "N/A":
-            self._attr_source = None
-        else:
-            code = sli.upper()
-            self._attr_source = (
-                self._sources.get(code) or DEFAULT_SOURCES.get(code) or f"Unknown ({code})"
-            )
+        self._attr_source = None if not sli or sli == "N/A" else self.source_map.name(sli.upper())
 
         lmd = state.get("LMD")
-        if not lmd or lmd == "N/A":
-            self._attr_sound_mode = None
-        else:
-            code = lmd.upper()
-            self._attr_sound_mode = LISTENING_MODES.get(code, f"Unknown ({code})")
-
-    def _send(self, command: str) -> None:
-        """Send a command, translating connection errors."""
-        try:
-            self._receiver.send(command)
-        except NotConnectedError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="not_connected"
-            ) from err
+        self._attr_sound_mode = (
+            None if not lmd or lmd == "N/A" else self.sound_mode_map.name(lmd.upper())
+        )
 
     async def async_turn_on(self) -> None:
         """Turn the receiver on."""
@@ -229,18 +144,16 @@ class EiscpMediaPlayer(MediaPlayerEntity):
 
     async def async_select_source(self, source: str) -> None:
         """Select an input source by its configured name."""
-        for code, name in self._sources.items():
-            if name == source:
-                self._send(f"SLI{code}")
-                return
+        if (code := self.source_map.code(source)) is not None:
+            self._send(f"SLI{code}")
+            return
         raise ServiceValidationError(translation_domain=DOMAIN, translation_key="unknown_source")
 
     async def async_select_sound_mode(self, sound_mode: str) -> None:
         """Select a listening mode by name."""
-        for code, name in LISTENING_MODES.items():
-            if name == sound_mode:
-                self._send(f"LMD{code}")
-                return
+        if (code := self.sound_mode_map.code(sound_mode)) is not None:
+            self._send(f"LMD{code}")
+            return
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="unknown_sound_mode"
         )

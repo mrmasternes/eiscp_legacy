@@ -1,4 +1,19 @@
 {
+  "entity": {
+    "select": {
+      "input": {
+        "default": "mdi:import"
+      },
+      "listening_mode": {
+        "default": "mdi:surround-sound"
+      }
+    },
+    "number": {
+      "volume": {
+        "default": "mdi:volume-high"
+      }
+    }
+  },
   "services": {
     "send_raw_command": {
       "service": "mdi:console"

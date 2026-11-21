@@ -8,12 +8,14 @@
           "host": "Host",
           "port": "Port",
           "protocol": "Protocol",
+          "model": "Model",
           "name": "Name"
         },
         "data_description": {
           "host": "IP address or hostname of the receiver (without a port, for example 10.0.1.209).",
           "port": "TCP port of the receiver. Network (eISCP) receivers normally use 60128.",
           "protocol": "Use Network (eISCP) for the built-in Ethernet port. Use Serial bridge only if the receiver is reached through a serial-to-TCP bridge such as ser2net.",
+          "model": "Your receiver model. Only the inputs and listening modes this model supports are offered. Choose Other / not listed to get all known inputs and modes.",
           "name": "Name of the receiver in Home Assistant."
         }
       },
@@ -46,23 +48,38 @@
   "options": {
     "step": {
       "init": {
-        "title": "Receiver options",
+        "title": "Receiver model and volume",
+        "description": "Changing the model resets the shown inputs and listening modes to the defaults of that model on the next page.",
         "data": {
+          "model": "Model",
           "volume_resolution": "Volume resolution",
-          "max_volume": "Maximum volume",
-          "sources": "Sources",
-          "sound_modes": "Sound modes"
+          "max_volume": "Maximum volume"
         },
         "data_description": {
+          "model": "Your receiver model. Only the inputs and listening modes this model supports are offered.",
           "volume_resolution": "Number of volume steps your receiver supports. Most older receivers use 100 steps; some use 80 or 200.",
-          "max_volume": "Upper volume limit as a percentage of the receiver's range. Volume commands from Home Assistant never exceed it.",
-          "sources": "One input per line in the form 03=HDMI, where the code is the receiver's SLI input code in hex and the text is the name shown in Home Assistant. Lines starting with # are ignored.",
-          "sound_modes": "Listening modes offered in Home Assistant."
+          "max_volume": "Upper volume limit as a percentage of the receiver's range. Volume commands from Home Assistant never exceed it."
         }
+      },
+      "select": {
+        "title": "Inputs and listening modes",
+        "description": "Choose which inputs and listening modes are shown in Home Assistant. If the receiver switches to a hidden one, Home Assistant still shows its name.",
+        "data": {
+          "sources": "Inputs",
+          "sound_modes": "Listening modes"
+        },
+        "data_description": {
+          "sources": "Inputs shown in the input list. At least one is required.",
+          "sound_modes": "Listening modes shown in the listening mode list."
+        }
+      },
+      "names": {
+        "title": "Input names",
+        "description": "Rename the inputs to match what is connected to them. Leave a field empty to use the standard name shown in the field label."
       }
     },
     "error": {
-      "invalid_sources": "Each line must look like 03=HDMI with a two-digit hex code and a name, and at least one source is required."
+      "no_sources": "Select at least one input."
     }
   },
   "selector": {
@@ -70,6 +87,21 @@
       "options": {
         "eiscp": "Network (eISCP)",
         "iscp": "Serial bridge (raw ISCP over TCP, e.g. ser2net)"
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "input": {
+        "name": "Input"
+      },
+      "listening_mode": {
+        "name": "Listening mode"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Volume"
       }
     }
   },

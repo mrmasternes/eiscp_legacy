@@ -48,36 +48,36 @@ Go to **Settings → Devices & services → Add integration** and search for "eI
 | Host | The receiver's IP address only (not `ip:port`) |
 | Port | `60128` for eISCP; the bridge's TCP port for serial |
 | Protocol | eISCP, or raw ISCP (serial-to-TCP bridge) |
+| Model | Your receiver model, or "Other / not listed". Only the inputs and listening modes that model supports are offered. |
 | Name | Name of the device in Home Assistant |
 
 You can change the IP address and port later via **Reconfigure** on the integration entry.
 
 ## Options
 
-| Option | Description |
-| --- | --- |
-| Volume resolution | Number of volume steps of the receiver: 50, 80, 100 or 200. DTC-9.8-era units usually use 100. |
-| Max volume | Cap, in percent, so that the slider can never exceed a chosen level. |
-| Input names | One entry per line as `code=name`, where `code` is the receiver's SLI hex code. |
-| Listening modes | Which listening modes are shown in the sound mode list. |
+Open **Configure** on the integration entry. It has three pages:
 
-Example input names:
+1. **Model and volume**
+   - *Model*: changing it resets the shown inputs and listening modes to the defaults of the new model (custom input names are kept for inputs the new model also has).
+   - *Volume resolution*: number of volume steps of the receiver: 50, 80, 100 or 200. DTC-9.8-era units usually use 100.
+   - *Maximum volume*: cap, in percent, so that volume can never exceed a chosen level.
+2. **Inputs and listening modes**: tick the inputs and listening modes to show in Home Assistant. Only those the selected model supports are listed, and at least one input is required.
+3. **Input names**: rename each shown input (for example `PHONO (22)` to `Record Player`). Leave a field empty to use the standard name.
 
-```text
-03=HDMI
-02=Playstation 2
-23=Record Player
-```
+If you upgrade from an earlier version, your existing options are migrated automatically (model "Other / not listed", your inputs and names kept).
 
-## Entity
+### Hidden inputs and modes
 
-One `media_player` entity with:
+If the receiver switches to an input or listening mode you have hidden (for example from its front panel or remote), Home Assistant still shows its proper name, and the select entities temporarily list it so the state is never "unknown".
 
-- power on/off
-- volume set and volume up/down
-- mute
-- input source
-- listening mode (shown as Home Assistant "sound mode")
+## Entities
+
+All entities belong to the same device:
+
+- `media_player`: power on/off, volume set and up/down, mute, input source, listening mode (shown as Home Assistant "sound mode")
+- `select` **Input**: choose the input
+- `select` **Listening mode**: choose the listening mode
+- `number` **Volume**: slider in receiver steps, from 0 up to the maximum volume cap
 
 ## Actions
 
