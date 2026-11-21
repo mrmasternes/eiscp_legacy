@@ -24,6 +24,8 @@ INITIAL_BACKOFF = 1.0
 MAX_BACKOFF = 60.0
 MAX_MISSED_KEEPALIVES = 3
 KEEPALIVE_COMMAND = "PWRQSTN"
+# Extra refreshes after power-on (at 3x the delay each), for slow-booting units.
+POWER_ON_FOLLOW_UPS = 2
 
 
 class NotConnectedError(Exception):
@@ -246,10 +248,18 @@ class Receiver:
             self._refresh_handle.cancel()
             self._refresh_handle = None
 
-    def _delayed_refresh(self) -> None:
-        """Run the scheduled refresh."""
+    def _delayed_refresh(self, follow_ups: int = 0) -> None:
+        """Run the scheduled refresh, then schedule follow-ups if requested.
+
+        Older receivers ignore queries for several seconds after power-on, so
+        the refresh is repeated with growing delays to fill in the state.
+        """
         self._refresh_handle = None
         self.refresh()
+        if follow_ups > 0 and self._connected:
+            self._refresh_handle = asyncio.get_running_loop().call_later(
+                self._power_on_refresh_delay * 3, self._delayed_refresh, follow_ups - 1
+            )
 
     def _record_error(self, err: BaseException) -> None:
         """Remember the last error as text."""
@@ -363,5 +373,5 @@ class Receiver:
         if message.command == "PWR" and message.value == "01" and previous != "01":
             self._cancel_refresh()
             self._refresh_handle = loop.call_later(
-                self._power_on_refresh_delay, self._delayed_refresh
+                self._power_on_refresh_delay, self._delayed_refresh, POWER_ON_FOLLOW_UPS
             )

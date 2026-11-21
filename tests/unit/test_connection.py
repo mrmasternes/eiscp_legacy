@@ -218,6 +218,20 @@ async def test_power_on_triggers_refresh(fake_receiver, make_receiver) -> None:
     assert fake_receiver.commands[0] == "PWR01"
 
 
+async def test_power_on_repeats_refresh_for_slow_receivers(fake_receiver, make_receiver) -> None:
+    """Slow units ignore early queries, so the power-on refresh is repeated."""
+    fake_receiver.state["PWR"] = "00"
+    receiver = await _connected(make_receiver, fake_receiver)
+    await _until(lambda: len(receiver.state) >= 5)
+    fake_receiver.commands.clear()
+    receiver.send("PWR01")
+    # 1 initial + 2 follow-up refreshes (delay 0.05 s, follow-ups every 0.15 s).
+    await _until(lambda: fake_receiver.commands.count("MVLQSTN") >= 3)
+    await asyncio.sleep(0.4)
+    assert fake_receiver.commands.count("MVLQSTN") == 3
+    assert receiver._refresh_handle is None
+
+
 async def test_pending_query_fails_on_stop(fake_receiver, make_receiver) -> None:
     receiver = await _connected(make_receiver, fake_receiver)
     await _until(lambda: len(receiver.state) >= 5)
