@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Coroutine
 import logging
 from typing import Any
@@ -19,7 +20,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .connection import DEFAULT_REFRESH_COMMANDS, NotConnectedError, Receiver
 from .const import CONF_FEATURES, CONF_PROTOCOL, DOMAIN, EVENT_MESSAGE, limits_signal
-from .features import async_detect_features, refresh_commands_for
+from .features import async_detect_features, feature_for_message, refresh_commands_for
 from .options import enforcement_target, migrate_options, options_need_reload
 from .protocol import PROTOCOL_EISCP, Message
 
@@ -34,6 +35,9 @@ PLATFORMS = [
 ]
 
 type EiscpConfigEntry = ConfigEntry[Receiver]
+
+# Seconds after setup before missing features are asked for again.
+FEATURE_RECHECK_DELAY = 30
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: EiscpConfigEntry) -> bool:
@@ -85,7 +89,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EiscpConfigEntry) -> boo
     # with what was cached, since a receiver in standby may not answer everything.
     # This happens before the update listener is registered so it cannot reload.
     cached: set[str] = set(entry.data.get(CONF_FEATURES, []))
-    detected = await async_detect_features(receiver, skip=cached)
+    # Short timeout here to keep startup quick; a background re-check catches stragglers.
+    detected = await async_detect_features(receiver, timeout=1.5, skip=cached)
     features = cached | detected
     if features != cached:
         hass.config_entries.async_update_entry(
@@ -106,11 +111,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: EiscpConfigEntry) -> boo
             pass
 
     @callback
+    def _add_features(new: set[str]) -> None:
+        """Cache newly found features; the data change reloads the entry."""
+        if not new - features:
+            return
+        _LOGGER.debug("New receiver features found: %s", sorted(new - features))
+        features.update(new)
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_FEATURES: sorted(features)}
+        )
+
+    @callback
     def _on_message(message: Message) -> None:
         if message.command == "MVL":
             _enforce_volume(message.value)
+        # A feature that missed detection proves itself when the receiver reports it.
+        key = feature_for_message(message.command, message.value)
+        if key is not None and key not in features:
+            _add_features({key})
 
     entry.async_on_unload(receiver.add_message_listener(_on_message))
+
+    async def _async_recheck_features() -> None:
+        """Ask again, after startup, for features the receiver did not answer."""
+        await asyncio.sleep(FEATURE_RECHECK_DELAY)
+        found = await async_detect_features(receiver, skip=features)
+        if found:
+            _add_features(found)
+
+    entry.async_create_background_task(
+        hass, _async_recheck_features(), f"{DOMAIN} feature recheck {entry.entry_id}"
+    )
 
     # The options and data this setup was made with, to tell which changes need a reload.
     applied_options = dict(entry.options)

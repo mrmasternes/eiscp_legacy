@@ -339,9 +339,19 @@ def refresh_commands_for(enabled: Collection[str]) -> tuple[str, ...]:
     )
 
 
+def feature_for_message(command: str, value: str) -> str | None:
+    """Return the probeable feature key a received message proves supported."""
+    if value.strip().upper() == _NOT_AVAILABLE:
+        return None
+    for feature in FEATURES:
+        if feature.probe and feature.command == command:
+            return feature.key
+    return None
+
+
 async def async_detect_features(
     receiver: _Queryable,
-    timeout: float = 1.0,  # noqa: ASYNC109
+    timeout: float = 3.0,  # noqa: ASYNC109
     skip: Collection[str] = (),
 ) -> set[str]:
     """Query each probeable feature and return the keys that got a reply.

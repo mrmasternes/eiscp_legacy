@@ -24,6 +24,7 @@ from custom_components.eiscp_legacy.features import (
     encode_sleep,
     encode_subwoofer_level,
     encode_switch,
+    feature_for_message,
     features_for_platform,
     format_tuner_frequency,
     refresh_commands_for,
@@ -315,3 +316,12 @@ def test_refresh_commands_property() -> None:
     receiver = Receiver("127.0.0.1", 1)
     receiver.refresh_commands = ("PWR", "SWL")
     assert receiver.refresh_commands == ("PWR", "SWL")
+
+
+def test_feature_for_message_learns_supported_features() -> None:
+    """A received feature message proves support; N/A and unknown commands do not."""
+    assert feature_for_message("SWL", "+4") == "subwoofer_level"
+    assert feature_for_message("SLA", "00") == "audio_selector"
+    assert feature_for_message("LTN", "N/A") is None
+    assert feature_for_message("TGA", "01") is None  # not probeable
+    assert feature_for_message("MVL", "3A") is None  # not an optional feature
