@@ -180,3 +180,60 @@ def test_labels() -> None:
     assert source_label("FF") == "Unknown (FF)"
     assert standard_source_name("22") == "PHONO"
     assert standard_source_name("FF") == "Unknown (FF)"
+
+
+def test_limit_steps() -> None:
+    from custom_components.eiscp_legacy.options import limit_steps
+
+    assert limit_steps(100, 50) == 50
+    assert limit_steps(80, 50) == 40
+    assert limit_steps(200, 33) == 66
+    assert limit_steps(100, 100) == 100
+
+
+def test_enforcement_target() -> None:
+    from custom_components.eiscp_legacy.options import enforcement_target
+
+    on = {"max_volume": 50, "volume_resolution": 100, "enforce_max_volume": True}
+    assert enforcement_target(on, "32") is None  # at the limit (0x32 = 50)
+    assert enforcement_target(on, "33") == "32"
+    assert enforcement_target(on, "64") == "32"
+    assert enforcement_target(on, "00") is None
+    assert enforcement_target(on, "N/A") is None
+    assert enforcement_target(on, "") is None
+    assert enforcement_target(on, None) is None
+    assert enforcement_target(on, "zz") is None
+    assert enforcement_target({**on, "enforce_max_volume": False}, "64") is None
+    assert enforcement_target({"max_volume": 50}, "64") is None  # default off
+    assert enforcement_target({**on, "volume_resolution": 200}, "64") is None
+    assert enforcement_target({**on, "volume_resolution": 200}, "65") == "64"
+    assert enforcement_target({**on, "max_volume": 5}, "09") == "05"
+
+
+def test_options_need_reload() -> None:
+    from custom_components.eiscp_legacy.options import options_need_reload
+
+    old = {"model": "x", "max_volume": 100, "sources": ["01"]}
+    assert not options_need_reload(old, dict(old))
+    assert not options_need_reload(old, {**old, "max_volume": 40})
+    assert not options_need_reload(old, {**old, "max_volume": 40, "enforce_max_volume": True})
+    assert options_need_reload(old, {**old, "model": "y"})
+    assert options_need_reload(old, {**old, "max_volume": 40, "sources": ["02"]})
+    assert options_need_reload(old, {**old, "volume_resolution": 200})
+    assert options_need_reload(old, {"model": "x", "max_volume": 100})
+
+
+def test_live_option_helpers() -> None:
+    from custom_components.eiscp_legacy.options import (
+        enforce_max_volume,
+        max_volume_percent,
+        volume_resolution,
+    )
+
+    assert max_volume_percent({}) == 100
+    assert max_volume_percent({"max_volume": 42.0}) == 42
+    assert max_volume_percent({"max_volume": "bad"}) == 100
+    assert enforce_max_volume({}) is False
+    assert enforce_max_volume({"enforce_max_volume": True}) is True
+    assert volume_resolution({}) == 100
+    assert volume_resolution({"volume_resolution": "80"}) == 80

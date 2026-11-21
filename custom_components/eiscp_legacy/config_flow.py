@@ -17,6 +17,7 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, PERCENTAGE
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -30,6 +31,7 @@ import voluptuous as vol
 
 from .connection import CannotConnect, NoResponse, async_probe
 from .const import (
+    CONF_ENFORCE_MAX_VOLUME,
     CONF_MAX_VOLUME,
     CONF_MODEL,
     CONF_PROTOCOL,
@@ -228,6 +230,7 @@ class EiscpOptionsFlow(OptionsFlow):
                 **current,
                 CONF_VOLUME_RESOLUTION: int(user_input[CONF_VOLUME_RESOLUTION]),
                 CONF_MAX_VOLUME: int(user_input[CONF_MAX_VOLUME]),
+                CONF_ENFORCE_MAX_VOLUME: bool(user_input[CONF_ENFORCE_MAX_VOLUME]),
             }
             if user_input[CONF_MODEL] != current.get(CONF_MODEL, MODEL_OTHER):
                 new = change_model(new, user_input[CONF_MODEL])
@@ -258,6 +261,7 @@ class EiscpOptionsFlow(OptionsFlow):
                         mode=NumberSelectorMode.SLIDER,
                     )
                 ),
+                vol.Required(CONF_ENFORCE_MAX_VOLUME): BooleanSelector(),
             }
         )
         suggested = {
@@ -266,6 +270,7 @@ class EiscpOptionsFlow(OptionsFlow):
                 current.get(CONF_VOLUME_RESOLUTION, DEFAULT_VOLUME_RESOLUTION)
             ),
             CONF_MAX_VOLUME: current.get(CONF_MAX_VOLUME, DEFAULT_MAX_VOLUME),
+            CONF_ENFORCE_MAX_VOLUME: current.get(CONF_ENFORCE_MAX_VOLUME, False),
         }
         return self.async_show_form(
             step_id="init",

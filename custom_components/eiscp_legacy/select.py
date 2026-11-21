@@ -9,7 +9,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import EiscpConfigEntry
 from .const import DOMAIN
-from .entity import EiscpEntity
+from .entity import EiscpEntity, EiscpFeatureEntity
+from .features import PLATFORM_SELECT, Feature, features_for_platform
 from .options import CodeMap
 
 PARALLEL_UPDATES = 1
@@ -21,7 +22,12 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the select entities for a config entry."""
-    async_add_entities([EiscpInputSelect(entry), EiscpListeningModeSelect(entry)])
+    entities: list[SelectEntity] = [EiscpInputSelect(entry), EiscpListeningModeSelect(entry)]
+    entities.extend(
+        EiscpFeatureSelect(entry, feature)
+        for feature in features_for_platform(PLATFORM_SELECT, entry.data.get("features", []))
+    )
+    async_add_entities(entities)
 
 
 class _EiscpCodeSelect(EiscpEntity, SelectEntity):
@@ -94,3 +100,27 @@ class EiscpListeningModeSelect(_EiscpCodeSelect):
         super().__init__(entry)
         self._attr_unique_id = f"{entry.entry_id}_listening_mode"
         self._map = self.sound_mode_map
+
+
+class EiscpFeatureSelect(EiscpFeatureEntity, SelectEntity):
+    """A receiver setting with a fixed list of options."""
+
+    def __init__(self, entry: EiscpConfigEntry, feature: Feature) -> None:
+        """Initialize the entity."""
+        super().__init__(entry, feature)
+        self._attr_options = feature.option_list
+        self._attr_current_option: str | None = None
+
+    def _handle_update(self) -> None:
+        assert self._feature.decode is not None
+        self._attr_current_option = self._feature.decode(self._raw)
+
+    async def async_select_option(self, option: str) -> None:
+        """Send the selected option to the receiver."""
+        assert self._feature.encode is not None
+        code = self._feature.encode(option)
+        if code is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="unknown_option"
+            )
+        self._send(f"{self._command}{code}")

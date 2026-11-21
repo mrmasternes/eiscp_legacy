@@ -36,6 +36,21 @@ from custom_components.eiscp_legacy.protocol import (  # noqa: E402
 
 INITIAL_STATE = {"PWR": "01", "MVL": "23", "AMT": "00", "SLI": "23", "LMD": "0D"}
 
+# Values the DTC-9.8 reports for the optional features.
+FEATURE_STATE = {
+    "SWL": "+4",
+    "LTN": "00",
+    "RAS": "00",
+    "DIM": "01",
+    "SLP": "00",
+    "SLA": "00",
+    "RES": "00",
+    "HDO": "",
+    "TUN": "01400",
+    "PRS": "00",
+    "ZPW": "01",
+}
+
 
 class FakeReceiver:
     """A tiny fake Onkyo/Integra receiver speaking eISCP or ISCP over TCP."""
@@ -43,7 +58,9 @@ class FakeReceiver:
     def __init__(self, protocol: str = "eiscp") -> None:
         """Initialize the fake."""
         self.protocol = protocol
-        self.state: dict[str, str] = dict(INITIAL_STATE)
+        self.state: dict[str, str] = {**INITIAL_STATE, **FEATURE_STATE}
+        # Commands that never get a reply (like unsupported ones on old receivers).
+        self.unsupported: set[str] = set()
         self.commands: list[str] = []
         self.silent = False
         # > 0: take this long to answer and drop commands received meanwhile.
@@ -96,6 +113,8 @@ class FakeReceiver:
 
     async def _apply(self, writer: asyncio.StreamWriter, message: Message) -> None:
         cmd, value = message.command, message.value
+        if cmd in self.unsupported:
+            return
         if value == "QSTN":
             await self._send(writer, f"{cmd}{self.state.get(cmd, 'N/A')}")
             return

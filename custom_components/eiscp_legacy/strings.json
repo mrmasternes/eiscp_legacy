@@ -53,12 +53,14 @@
         "data": {
           "model": "Model",
           "volume_resolution": "Volume resolution",
-          "max_volume": "Maximum volume"
+          "max_volume": "Maximum volume",
+          "enforce_max_volume": "Enforce volume limit"
         },
         "data_description": {
           "model": "Your receiver model. Only the inputs and listening modes this model supports are offered.",
           "volume_resolution": "Number of volume steps your receiver supports. Most older receivers use 100 steps; some use 80 or 200.",
-          "max_volume": "Upper volume limit as a percentage of the receiver's range. Volume commands from Home Assistant never exceed it."
+          "max_volume": "Upper volume limit as a percentage of the receiver's range. Volume commands from Home Assistant never exceed it.",
+          "enforce_max_volume": "Also lower the volume if it is raised above the limit from the receiver itself or another controller."
         }
       },
       "select": {
@@ -97,11 +99,105 @@
       },
       "listening_mode": {
         "name": "Listening mode"
+      },
+      "late_night": {
+        "name": "Late night",
+        "state": {
+          "off": "Off",
+          "low": "Low",
+          "high": "High"
+        }
+      },
+      "dimmer": {
+        "name": "Display dimmer",
+        "state": {
+          "bright": "Bright",
+          "dim": "Dim",
+          "dark": "Dark",
+          "shut_off": "Shut off",
+          "bright_led_off": "Bright, LED off"
+        }
+      },
+      "audio_selector": {
+        "name": "Audio selector",
+        "state": {
+          "auto": "Auto",
+          "multichannel": "Multichannel",
+          "analog": "Analog",
+          "ilink": "i.LINK",
+          "hdmi": "HDMI",
+          "coax_opt": "Coaxial / optical",
+          "balance": "Balanced"
+        }
+      },
+      "monitor_resolution": {
+        "name": "Monitor resolution",
+        "state": {
+          "through": "Through",
+          "auto": "Auto",
+          "480p": "480p",
+          "720p": "720p",
+          "1080i": "1080i",
+          "1080p": "1080p",
+          "source": "Source",
+          "1080p_24": "1080p/24"
+        }
+      },
+      "hdmi_output": {
+        "name": "HDMI output",
+        "state": {
+          "analog": "Analog",
+          "main": "HDMI main",
+          "sub": "HDMI sub",
+          "both": "Both",
+          "both_main": "Both (main)",
+          "both_sub": "Both (sub)"
+        }
+      },
+      "tuner_preset": {
+        "name": "Tuner preset"
       }
     },
     "number": {
       "volume": {
         "name": "Volume"
+      },
+      "subwoofer_level": {
+        "name": "Subwoofer level"
+      },
+      "sleep_timer": {
+        "name": "Sleep timer"
+      },
+      "volume_limit": {
+        "name": "Volume limit"
+      }
+    },
+    "switch": {
+      "re_eq": {
+        "name": "Re-EQ"
+      },
+      "zone2_power": {
+        "name": "Zone 2 power"
+      },
+      "trigger_a": {
+        "name": "12 V trigger A"
+      },
+      "trigger_b": {
+        "name": "12 V trigger B"
+      },
+      "trigger_c": {
+        "name": "12 V trigger C"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "enforce_volume_limit": {
+        "name": "Enforce volume limit"
+      }
+    },
+    "sensor": {
+      "tuner_frequency": {
+        "name": "Tuner frequency"
       }
     }
   },
@@ -123,6 +219,9 @@
     },
     "unknown_sound_mode": {
       "message": "Unknown sound mode."
+    },
+    "unknown_option": {
+      "message": "Unknown option."
     }
   },
   "services": {

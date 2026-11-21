@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Power switch, a Volume limit slider and an Enforce volume limit switch (also in the options). Changing only the volume limit no longer reloads the integration.
+- Auto-detected extra controls: subwoofer level, late night, Re-EQ, display dimmer, sleep timer, audio selector, monitor resolution, HDMI output, tuner frequency and preset, Zone 2 power. Entities are created only for features the receiver answers; detected features are cached.
+- 12 V trigger A/B/C switches (assumed state, disabled by default).
 - Choose the receiver model during setup and in the options; only the inputs and listening modes of that model are offered.
 - Options flow with three pages: model and volume, which inputs and listening modes to show, and input names.
 - `select` entities for input and listening mode, and a `number` volume slider, on the same device as the media player.

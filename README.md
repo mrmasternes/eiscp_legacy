@@ -78,6 +78,35 @@ All entities belong to the same device:
 - `select` **Input**: choose the input
 - `select` **Listening mode**: choose the listening mode
 - `number` **Volume**: slider in receiver steps, from 0 up to the maximum volume cap
+- `switch` **Power**: main zone power
+- `number` **Volume limit** and `switch` **Enforce volume limit** (configuration): see below
+
+## Volume limit
+
+The maximum volume is the same setting as *Maximum volume* in the options. It can also be changed with the **Volume limit** slider (1 to 100 %), without reloading the integration. Home Assistant never sets the volume above it. When **Enforce volume limit** is on (also in the options), the integration additionally sends the limit to the receiver whenever the volume is raised above it by any other means (front panel, remote, another app), and once when you switch enforcement on or lower the limit.
+
+## Extra controls
+
+When the integration connects it asks the receiver about each optional feature below (one short query each). Entities are created only for features the receiver answers. Unsupported commands get no reply on older receivers, so unsupported features simply do not appear. Detected features are remembered, so entities do not disappear if the receiver is in standby and does not answer everything; reload the integration after switching the receiver on to pick up newly answering features.
+
+| Entity | Command | Notes |
+| --- | --- | --- |
+| `number` Subwoofer level | `SWL` | -15 to +12 dB |
+| `select` Late night | `LTN` | Off, Low, High |
+| `switch` Re-EQ | `RAS` | Configuration |
+| `select` Display dimmer | `DIM` | Bright, Dim, Dark, Shut off, Bright (LED off); configuration |
+| `number` Sleep timer | `SLP` | 0 (off) to 90 minutes |
+| `select` Audio selector | `SLA` | Auto, Multichannel, Analog, i.LINK, HDMI, Coaxial / optical, Balanced; configuration |
+| `select` Monitor resolution | `RES` | Through, Auto, 480p, 720p, 1080i, 1080p, Source, 1080p/24; configuration |
+| `select` HDMI output | `HDO` | Analog, Main, Sub, Both, Both (main), Both (sub); configuration |
+| `sensor` Tuner frequency | `TUN` | For example `87.50 MHz` (FM) or `1400 kHz` (AM) |
+| `select` Tuner preset | `PRS` | Presets 1 to 40 |
+| `switch` Zone 2 power | `ZPW` | |
+| `switch` 12 V trigger A / B / C | `TGA` / `TGB` / `TGC` | See below |
+
+### 12 V triggers
+
+The receiver cannot report the state of its triggers, so they are not detected. The three trigger switches are always created but **disabled by default**; enable them under the device's entities. They use an assumed state (the last value sent or received). The receiver accepts trigger commands only when the matching 12 V trigger setting in its setup menu is set to **OFF**.
 
 ## Actions
 
@@ -174,8 +203,7 @@ Support depends on the receiver model. Volume values are hex on the wire: `MVL23
 
 ## Roadmap
 
-- Extra controls, auto-detected per receiver: tone, subwoofer/center level, dimmer, sleep, Audyssey, late night, triggers
-- Tuner presets
+- More extra controls: tone, center level, Audyssey
 - Zone 2 / Zone 3
 - Direct RS-232 serial connection
 - Info sensors

@@ -11,6 +11,8 @@ CONF_VOLUME_RESOLUTION = "volume_resolution"
 CONF_MAX_VOLUME = "max_volume"
 CONF_SOURCES = "sources"
 CONF_SOUND_MODES = "sound_modes"
+CONF_FEATURES = "features"
+CONF_ENFORCE_MAX_VOLUME = "enforce_max_volume"
 
 DEFAULT_PORT = 60128
 DEFAULT_NAME = "Receiver"
@@ -19,6 +21,12 @@ DEFAULT_VOLUME_RESOLUTION = 100
 DEFAULT_MAX_VOLUME = 100
 
 EVENT_MESSAGE = f"{DOMAIN}_message"
+
+
+def limits_signal(entry_id: str) -> str:
+    """Return the dispatcher signal fired when the volume limit settings change."""
+    return f"{DOMAIN}_{entry_id}_limits"
+
 
 DEFAULT_SOURCES: dict[str, str] = {
     "00": "VCR/DVR",

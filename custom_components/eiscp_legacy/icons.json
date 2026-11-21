@@ -6,11 +6,66 @@
       },
       "listening_mode": {
         "default": "mdi:surround-sound"
+      },
+      "late_night": {
+        "default": "mdi:weather-night"
+      },
+      "dimmer": {
+        "default": "mdi:brightness-6"
+      },
+      "audio_selector": {
+        "default": "mdi:audio-input-rca"
+      },
+      "monitor_resolution": {
+        "default": "mdi:monitor"
+      },
+      "hdmi_output": {
+        "default": "mdi:hdmi-port"
+      },
+      "tuner_preset": {
+        "default": "mdi:radio"
       }
     },
     "number": {
       "volume": {
         "default": "mdi:volume-high"
+      },
+      "subwoofer_level": {
+        "default": "mdi:speaker"
+      },
+      "sleep_timer": {
+        "default": "mdi:sleep"
+      },
+      "volume_limit": {
+        "default": "mdi:car-speed-limiter"
+      }
+    },
+    "switch": {
+      "re_eq": {
+        "default": "mdi:equalizer"
+      },
+      "zone2_power": {
+        "default": "mdi:power"
+      },
+      "trigger_a": {
+        "default": "mdi:flash"
+      },
+      "trigger_b": {
+        "default": "mdi:flash"
+      },
+      "trigger_c": {
+        "default": "mdi:flash"
+      },
+      "power": {
+        "default": "mdi:power"
+      },
+      "enforce_volume_limit": {
+        "default": "mdi:shield-lock-outline"
+      }
+    },
+    "sensor": {
+      "tuner_frequency": {
+        "default": "mdi:radio-tower"
       }
     }
   },

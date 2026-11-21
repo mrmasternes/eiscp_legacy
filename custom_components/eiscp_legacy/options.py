@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from .const import (
+    CONF_ENFORCE_MAX_VOLUME,
     CONF_MAX_VOLUME,
     CONF_MODEL,
     CONF_SOUND_MODES,
@@ -104,6 +105,59 @@ def change_model(options: Mapping[str, Any], new_model: str) -> dict[str, Any]:
         if code in available
     }
     return new
+
+
+# Option keys that can change without reloading the entry.
+LIVE_OPTION_KEYS = frozenset({CONF_MAX_VOLUME, CONF_ENFORCE_MAX_VOLUME})
+
+
+def max_volume_percent(options: Mapping[str, Any]) -> int:
+    """Return the configured volume limit in percent."""
+    try:
+        return int(options.get(CONF_MAX_VOLUME, DEFAULT_MAX_VOLUME))
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_VOLUME
+
+
+def enforce_max_volume(options: Mapping[str, Any]) -> bool:
+    """Return True when the volume limit is enforced on the receiver."""
+    return bool(options.get(CONF_ENFORCE_MAX_VOLUME, False))
+
+
+def volume_resolution(options: Mapping[str, Any]) -> int:
+    """Return the configured number of volume steps."""
+    try:
+        return int(options.get(CONF_VOLUME_RESOLUTION, DEFAULT_VOLUME_RESOLUTION))
+    except (TypeError, ValueError):
+        return DEFAULT_VOLUME_RESOLUTION
+
+
+def limit_steps(resolution: int, max_volume: int) -> int:
+    """Return the volume limit in receiver steps."""
+    return round(resolution * max_volume / 100)
+
+
+def enforcement_target(options: Mapping[str, Any], mvl_value: str | None) -> str | None:
+    """Return the 2-digit hex volume to send back, or None when nothing is needed.
+
+    Only when enforcement is on and the (hex) volume is above the limit.
+    """
+    if not enforce_max_volume(options) or not mvl_value:
+        return None
+    try:
+        level = int(mvl_value, 16)
+    except ValueError:
+        return None
+    limit = limit_steps(volume_resolution(options), max_volume_percent(options))
+    if level <= limit:
+        return None
+    return f"{limit:02X}"
+
+
+def options_need_reload(old: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
+    """Return True unless only the live-updatable volume limit options differ."""
+    keys = (set(old) | set(new)) - LIVE_OPTION_KEYS
+    return any(old.get(key) != new.get(key) for key in keys)
 
 
 class CodeMap:

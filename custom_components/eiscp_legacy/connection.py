@@ -142,6 +142,16 @@ class Receiver:
         return asyncio.create_task(coro, name=name)
 
     @property
+    def refresh_commands(self) -> tuple[str, ...]:
+        """Return the commands queried by refresh()."""
+        return self._refresh_commands
+
+    @refresh_commands.setter
+    def refresh_commands(self, commands: tuple[str, ...]) -> None:
+        """Set the commands queried by refresh()."""
+        self._refresh_commands = tuple(commands)
+
+    @property
     def connected(self) -> bool:
         """Return True while a session is established."""
         return self._connected
